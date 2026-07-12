@@ -4,40 +4,44 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = '' }
   }, [onClose])
 
-  const maxW = size === 'lg' ? 'max-w-2xl' : size === 'sm' ? 'max-w-sm' : 'max-w-lg'
+  const maxW = size === 'lg' ? '640px' : size === 'sm' ? '400px' : '520px'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
+    <div
+      className="animate-fade-in"
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
       <div
-        className={`w-full ${maxW} animate-fade-in-up`}
+        className="animate-slide-up"
         style={{
-          background: 'rgba(13,21,38,0.95)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '1.25rem',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
-          backdropFilter: 'blur(20px)',
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          width: '100%', maxWidth: maxW,
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border-default)',
+          borderRadius: '12px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          maxHeight: '90vh', overflowY: 'auto',
         }}
       >
-        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <h3 className="text-lg font-bold text-white">{title}</h3>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 style={{ fontSize: '0.9375rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{title}</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{ background: 'rgba(255,255,255,0.06)', color: '#64748b' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244,63,94,0.15)'; e.currentTarget.style.color = '#f43f5e' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#64748b' }}
+            className="btn-ghost"
+            style={{ padding: '4px', color: 'var(--text-tertiary)' }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
-              <path d="M18 6 6 18M6 6l12 12"/>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '14px', height: '14px' }}>
+              <path d="M12 4 4 12M4 4l8 8"/>
             </svg>
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        {/* Body */}
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {children}
         </div>
       </div>

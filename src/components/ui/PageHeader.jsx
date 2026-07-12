@@ -1,12 +1,11 @@
 export default function PageHeader({ title, subtitle, action }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-8 animate-fade-in-up">
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }} className="animate-slide-up">
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">{title}</h2>
-        <div className="page-header-line w-16 mt-1.5 mb-1" />
-        {subtitle && <p className="text-sm" style={{ color: '#475569' }}>{subtitle}</p>}
+        <h1 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: '1.4' }}>{title}</h1>
+        {subtitle && <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{subtitle}</p>}
       </div>
-      {action && <div className="flex items-center gap-3 flex-wrap">{action}</div>}
+      {action && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{action}</div>}
     </div>
   )
 }

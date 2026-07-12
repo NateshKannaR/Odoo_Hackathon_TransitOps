@@ -4,30 +4,24 @@ import AppLayout from '../../components/layout/AppLayout'
 import PageHeader from '../../components/ui/PageHeader'
 import Badge from '../../components/ui/Badge'
 import { Skeleton } from '../../components/ui/Skeleton'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 
 function exportCSV(data) {
   const headers = ['Vehicle','Status','Acquisition Cost','Fuel Cost','Maintenance Cost','Other Expenses','Total Op. Cost','Total Distance (km)','Total Fuel (L)','Fuel Efficiency (km/L)','Revenue','ROI (%)']
-  const rows = data.map(r => [
-    r.plate_number, r.status, r.acquisition_cost ?? 0,
-    r.fuelCost.toFixed(2), r.maintCost.toFixed(2), r.expCost.toFixed(2),
-    r.totalCost.toFixed(2), r.totalDistance.toFixed(2), r.totalFuelConsumed.toFixed(2),
-    r.fuelEfficiency, r.revenue.toFixed(2), r.roi,
-  ])
+  const rows = data.map(r => [r.plate_number, r.status, r.acquisition_cost ?? 0, r.fuelCost.toFixed(2), r.maintCost.toFixed(2), r.expCost.toFixed(2), r.totalCost.toFixed(2), r.totalDistance.toFixed(2), r.totalFuelConsumed.toFixed(2), r.fuelEfficiency, r.revenue.toFixed(2), r.roi])
   const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'transitops_report.csv'; a.click()
+  const a = document.createElement('a'); a.href = url; a.download = 'transitops_report.csv'; a.click()
   URL.revokeObjectURL(url)
 }
 
-const CustomTooltip = ({ active, payload, label }) => {
+const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(13,21,38,0.95)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-      <p className="font-semibold text-white mb-1">{label}</p>
-      {payload.map(p => <p key={p.name} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' ? `$${p.value.toFixed(2)}` : p.value}</p>)}
+    <div style={{ background: 'var(--surface-4)', border: '1px solid var(--border-default)', borderRadius: '7px', padding: '8px 12px', fontSize: '0.75rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>{label}</p>
+      {payload.map(p => <p key={p.name} style={{ color: p.color, fontWeight: 500 }}>{p.name}: {typeof p.value === 'number' ? `$${p.value.toFixed(2)}` : p.value}</p>)}
     </div>
   )
 }
@@ -48,42 +42,28 @@ export default function Reports() {
       supabase.from('maintenance_logs').select('vehicle_id,cost'),
       supabase.from('expenses').select('vehicle_id,amount'),
     ])
-
-    const v = vehicles.data ?? []
-    const t = trips.data ?? []
-    const fl = fuelLogs.data ?? []
-    const ml = maintLogs.data ?? []
-    const ex = expenses.data ?? []
-
+    const v = vehicles.data ?? [], t = trips.data ?? [], fl = fuelLogs.data ?? [], ml = maintLogs.data ?? [], ex = expenses.data ?? []
     const rows = v.map(veh => {
       const plate_number = veh.registration_number ?? veh.plate_number
       const fuelCost = fl.filter(r => r.vehicle_id === veh.id).reduce((s, r) => s + Number(r.total_cost ?? 0), 0)
       const maintCost = ml.filter(r => r.vehicle_id === veh.id).reduce((s, r) => s + Number(r.cost ?? 0), 0)
       const expCost = ex.filter(r => r.vehicle_id === veh.id).reduce((s, r) => s + Number(r.amount ?? 0), 0)
       const totalCost = fuelCost + maintCost + expCost
-
       const vTrips = t.filter(r => r.vehicle_id === veh.id && r.status === 'completed')
       const totalDistance = vTrips.reduce((s, r) => s + Number(r.actual_distance ?? r.planned_distance ?? 0), 0)
-      const totalFuelConsumed = vTrips.reduce((s, r) => s + Number(r.fuel_consumed ?? 0), 0)
-        + fl.filter(r => r.vehicle_id === veh.id).reduce((s, r) => s + Number(r.liters ?? 0), 0)
+      const totalFuelConsumed = vTrips.reduce((s, r) => s + Number(r.fuel_consumed ?? 0), 0) + fl.filter(r => r.vehicle_id === veh.id).reduce((s, r) => s + Number(r.liters ?? 0), 0)
       const fuelEfficiency = totalFuelConsumed > 0 ? (totalDistance / totalFuelConsumed).toFixed(2) : '—'
-
       const revenue = vTrips.reduce((s, r) => s + Number(r.revenue ?? 0), 0)
       const acqCost = Number(veh.acquisition_cost ?? 0)
       const roi = acqCost > 0 ? (((revenue - (maintCost + fuelCost)) / acqCost) * 100).toFixed(1) : '—'
-
       return { ...veh, plate_number, fuelCost, maintCost, expCost, totalCost, totalDistance, totalFuelConsumed, fuelEfficiency, revenue, roi }
     })
-
-    setReport(rows)
-    setLoading(false)
+    setReport(rows); setLoading(false)
   }
 
   const filtered = statusFilter === 'all' ? report : report.filter(r => r.status === statusFilter)
-
   const chartData = filtered.map(r => ({ name: r.plate_number, Fuel: r.fuelCost, Maintenance: r.maintCost, Expenses: r.expCost }))
   const efficiencyData = filtered.filter(r => r.fuelEfficiency !== '—').map(r => ({ name: r.plate_number, efficiency: Number(r.fuelEfficiency) }))
-
   const totalRevenue = filtered.reduce((s, r) => s + r.revenue, 0)
   const totalCost = filtered.reduce((s, r) => s + r.totalCost, 0)
   const avgEfficiency = efficiencyData.length > 0 ? (efficiencyData.reduce((s, r) => s + r.efficiency, 0) / efficiencyData.length).toFixed(2) : '—'
@@ -91,41 +71,36 @@ export default function Reports() {
   return (
     <AppLayout>
       <PageHeader
-        title="Reports & Analytics"
-        subtitle="Fleet performance overview"
+        title="Reports"
+        subtitle="Fleet performance analytics"
         action={
-          <div className="flex items-center gap-3">
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base" style={{ width: 'auto', minWidth: '140px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base" style={{ width: 'auto', minWidth: '130px', height: '34px', fontSize: '0.8125rem' }}>
               <option value="all">All Vehicles</option>
               <option value="available">Available</option>
               <option value="on_trip">On Trip</option>
               <option value="in_shop">In Shop</option>
               <option value="retired">Retired</option>
             </select>
-            <button onClick={() => exportCSV(filtered)} className="btn-primary flex items-center gap-2" style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            <button onClick={() => exportCSV(filtered)} className="btn-secondary" style={{ height: '34px' }}>
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '12px', height: '12px' }}><path d="M7 9V1M4 6l3 3 3-3M1 11v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1"/></svg>
               Export CSV
             </button>
           </div>
         }
       />
 
-      {/* Summary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, color: '#10b981', icon: '💹' },
-          { label: 'Total Op. Cost', value: `$${totalCost.toFixed(2)}`, color: '#f43f5e', icon: '💸' },
-          { label: 'Net Profit', value: `$${(totalRevenue - totalCost).toFixed(2)}`, color: totalRevenue >= totalCost ? '#10b981' : '#f43f5e', icon: '📈' },
-          { label: 'Avg Fuel Efficiency', value: avgEfficiency !== '—' ? `${avgEfficiency} km/L` : '—', color: '#3b82f6', icon: '⛽' },
-        ].map(item => (
-          <div key={item.label} className="card p-4 flex items-center gap-3 animate-fade-in-up">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${item.color}18`, border: `1px solid ${item.color}30` }}>
-              {item.icon}
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#334155' }}>{item.label}</p>
-              <p className="text-lg font-bold mt-0.5" style={{ color: item.color }}>{item.value}</p>
-            </div>
+          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, color: 'var(--green)' },
+          { label: 'Total Op. Cost', value: `$${totalCost.toFixed(2)}`, color: 'var(--red)' },
+          { label: 'Net Profit', value: `$${(totalRevenue - totalCost).toFixed(2)}`, color: totalRevenue >= totalCost ? 'var(--green)' : 'var(--red)' },
+          { label: 'Avg Fuel Efficiency', value: avgEfficiency !== '—' ? `${avgEfficiency} km/L` : '—', color: 'var(--blue)' },
+        ].map((item, i) => (
+          <div key={item.label} className={`card animate-slide-up delay-${i+1}`} style={{ padding: '14px 16px' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '6px' }}>{item.label}</p>
+            <p style={{ fontSize: '1.125rem', fontWeight: '600', color: item.color, letterSpacing: '-0.02em' }}>{item.value}</p>
           </div>
         ))}
       </div>
@@ -133,37 +108,36 @@ export default function Reports() {
       {loading ? <Skeleton rows={6} /> : (
         <>
           {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             {chartData.length > 0 && (
-              <div className="card p-5 animate-fade-in-up">
-                <h3 className="text-sm font-bold text-white mb-1">Operational Cost per Vehicle</h3>
-                <p className="text-xs mb-4" style={{ color: '#475569' }}>Stacked by category</p>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={chartData} barSize={28}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="Fuel" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="Maintenance" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="Expenses" stackId="a" fill="#f43f5e" radius={[4,4,0,0]} />
+              <div className="card animate-slide-up" style={{ padding: '16px 18px' }}>
+                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px' }}>Cost per Vehicle</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '14px' }}>Stacked by category</p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={chartData} barSize={22} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="Fuel" stackId="a" fill="var(--blue)" />
+                    <Bar dataKey="Maintenance" stackId="a" fill="var(--amber)" />
+                    <Bar dataKey="Expenses" stackId="a" fill="var(--red)" radius={[3,3,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
-
             {efficiencyData.length > 0 && (
-              <div className="card p-5 animate-fade-in-up">
-                <h3 className="text-sm font-bold text-white mb-1">Fuel Efficiency</h3>
-                <p className="text-xs mb-4" style={{ color: '#475569' }}>km per liter by vehicle</p>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={efficiencyData} barSize={28}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="efficiency" radius={[6,6,0,0]}>
-                      {efficiencyData.map((_, i) => <Cell key={i} fill={`hsl(${160 + i * 30}, 70%, 55%)`} />)}
+              <div className="card animate-slide-up delay-1" style={{ padding: '16px 18px' }}>
+                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px' }}>Fuel Efficiency</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '14px' }}>km/L by vehicle</p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={efficiencyData} barSize={22} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="efficiency" radius={[3,3,0,0]}>
+                      {efficiencyData.map((_, i) => <Cell key={i} fill={`hsl(${155 + i * 25}, 60%, 50%)`} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -171,49 +145,35 @@ export default function Reports() {
             )}
           </div>
 
-          {/* Report Table */}
-          <div className="card overflow-x-auto animate-fade-in-up">
-            <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-sm font-bold text-white">Vehicle Performance Report</h3>
-              <p className="text-xs mt-0.5" style={{ color: '#475569' }}>{filtered.length} vehicles</p>
+          {/* Table */}
+          <div className="card animate-slide-up delay-2" style={{ overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)' }}>Vehicle Performance</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '1px' }}>{filtered.length} vehicles</p>
             </div>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {['Vehicle','Status','Fuel Cost','Maint. Cost','Other Exp.','Total Cost','Distance','Fuel (L)','Efficiency','Revenue','ROI'].map(h => <th key={h}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={11} className="text-center py-8" style={{ color: '#334155' }}>No data available.</td></tr>
-                )}
-                {filtered.map(r => (
-                  <tr key={r.id}>
-                    <td className="font-bold text-white">{r.plate_number}</td>
-                    <td><Badge value={r.status} /></td>
-                    <td style={{ color: '#60a5fa' }}>${r.fuelCost.toFixed(2)}</td>
-                    <td style={{ color: '#fbbf24' }}>${r.maintCost.toFixed(2)}</td>
-                    <td style={{ color: '#94a3b8' }}>${r.expCost.toFixed(2)}</td>
-                    <td><span className="font-bold" style={{ color: '#fb7185' }}>${r.totalCost.toFixed(2)}</span></td>
-                    <td>{r.totalDistance.toFixed(1)} km</td>
-                    <td>{r.totalFuelConsumed.toFixed(1)} L</td>
-                    <td>
-                      <span className="font-semibold" style={{ color: r.fuelEfficiency !== '—' ? '#34d399' : '#475569' }}>
-                        {r.fuelEfficiency !== '—' ? `${r.fuelEfficiency} km/L` : '—'}
-                      </span>
-                    </td>
-                    <td style={{ color: '#34d399' }}>${r.revenue.toFixed(2)}</td>
-                    <td>
-                      {r.roi !== '—' ? (
-                        <span className="font-bold" style={{ color: Number(r.roi) >= 0 ? '#34d399' : '#fb7185' }}>
-                          {r.roi}%
-                        </span>
-                      ) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead><tr>{['Vehicle','Status','Fuel','Maintenance','Expenses','Total Cost','Distance','Fuel (L)','Efficiency','Revenue','ROI'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filtered.length === 0 && <tr><td colSpan={11} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-tertiary)' }}>No data available.</td></tr>}
+                  {filtered.map(r => (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.plate_number}</td>
+                      <td><Badge value={r.status} /></td>
+                      <td style={{ color: 'var(--blue)' }}>${r.fuelCost.toFixed(2)}</td>
+                      <td style={{ color: 'var(--amber)' }}>${r.maintCost.toFixed(2)}</td>
+                      <td>${r.expCost.toFixed(2)}</td>
+                      <td style={{ fontWeight: 500, color: 'var(--red)' }}>${r.totalCost.toFixed(2)}</td>
+                      <td>{r.totalDistance.toFixed(1)} km</td>
+                      <td>{r.totalFuelConsumed.toFixed(1)} L</td>
+                      <td style={{ color: r.fuelEfficiency !== '—' ? 'var(--green)' : 'var(--text-tertiary)', fontWeight: r.fuelEfficiency !== '—' ? 500 : 400 }}>{r.fuelEfficiency !== '—' ? `${r.fuelEfficiency} km/L` : '—'}</td>
+                      <td style={{ color: 'var(--green)' }}>${r.revenue.toFixed(2)}</td>
+                      <td>{r.roi !== '—' ? <span style={{ fontWeight: 600, color: Number(r.roi) >= 0 ? 'var(--green)' : 'var(--red)' }}>{r.roi}%</span> : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

@@ -7,9 +7,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 
-const empty = { category: '', amount: '', description: '', expense_date: '', vehicle_id: '', trip_id: '' }
-const CATEGORIES = ['toll', 'misc', 'insurance', 'salary', 'repair', 'other']
-const CAT_COLORS = { toll: '#06b6d4', misc: '#64748b', insurance: '#8b5cf6', salary: '#f59e0b', repair: '#f43f5e', other: '#94a3b8' }
+const EMPTY = { category: '', amount: '', description: '', expense_date: '', vehicle_id: '', trip_id: '' }
+const CATEGORIES = ['toll','misc','insurance','salary','repair','other']
+const CAT_COLOR = { toll: 'var(--cyan)', misc: 'var(--text-secondary)', insurance: 'var(--violet)', salary: 'var(--amber)', repair: 'var(--red)', other: 'var(--text-secondary)' }
 
 export default function Expenses() {
   const toast = useToast()
@@ -19,7 +19,7 @@ export default function Expenses() {
   const [vehicleCosts, setVehicleCosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState(empty)
+  const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
 
   useEffect(() => { fetchAll() }, [])
@@ -34,10 +34,7 @@ export default function Expenses() {
       supabase.from('maintenance_logs').select('vehicle_id,cost'),
       supabase.from('expenses').select('vehicle_id,amount'),
     ])
-    setExpenses(e.data ?? [])
-    setVehicles(v.data ?? [])
-    setTrips(t.data ?? [])
-
+    setExpenses(e.data ?? []); setVehicles(v.data ?? []); setTrips(t.data ?? [])
     const costMap = {}
     ;(v.data ?? []).forEach(veh => { costMap[veh.id] = { id: veh.id, plate: veh.registration_number ?? veh.plate_number, fuel: 0, maintenance: 0, expenses: 0 } })
     ;(fl.data ?? []).forEach(r => { if (costMap[r.vehicle_id]) costMap[r.vehicle_id].fuel += Number(r.total_cost ?? 0) })
@@ -55,15 +52,13 @@ export default function Expenses() {
       : await supabase.from('expenses').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(editing ? 'Expense updated.' : 'Expense added.', 'success')
-    setModal(false); setForm(empty); setEditing(null)
-    fetchAll()
+    setModal(false); setForm(EMPTY); setEditing(null); fetchAll()
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this expense?')) return
     await supabase.from('expenses').delete().eq('id', id)
-    toast('Expense deleted.', 'info')
-    fetchAll()
+    toast('Expense deleted.', 'info'); fetchAll()
   }
 
   function openEdit(row) {
@@ -73,63 +68,49 @@ export default function Expenses() {
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount ?? 0), 0)
   const byCategory = CATEGORIES.reduce((acc, c) => ({ ...acc, [c]: expenses.filter(e => e.category === c).reduce((s, e) => s + Number(e.amount ?? 0), 0) }), {})
-
-  const getVehicleName = (exp) => exp.vehicles?.registration_number ?? exp.vehicles?.plate_number ?? '—'
-  const getTripLabel = (exp) => {
-    if (!exp.trips) return '—'
-    return `${exp.trips.source ?? exp.trips.origin ?? ''} → ${exp.trips.destination ?? ''}`
-  }
+  const getVehicleName = exp => exp.vehicles?.registration_number ?? exp.vehicles?.plate_number ?? '—'
+  const getTripLabel = exp => exp.trips ? `${exp.trips.source ?? exp.trips.origin ?? ''} → ${exp.trips.destination ?? ''}` : '—'
 
   return (
     <AppLayout>
       <PageHeader
         title="Expenses"
         subtitle={`${expenses.length} records · $${total.toFixed(2)} total`}
-        action={
-          <button onClick={() => { setForm(empty); setEditing(null); setModal(true) }} className="btn-primary flex items-center gap-2">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
-            Add Expense
-          </button>
-        }
+        action={<button onClick={() => { setForm(EMPTY); setEditing(null); setModal(true) }} className="btn-primary"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '12px', height: '12px' }}><path d="M7 1v12M1 7h12"/></svg>Add Expense</button>}
       />
 
       {/* Category breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        {CATEGORIES.map(cat => (
-          <div key={cat} className="card p-3 text-center animate-fade-in-up">
-            <div className="w-8 h-8 rounded-lg mx-auto mb-2 flex items-center justify-center text-sm" style={{ background: `${CAT_COLORS[cat]}18`, border: `1px solid ${CAT_COLORS[cat]}30` }}>
-              {cat === 'toll' ? '🛣️' : cat === 'insurance' ? '🛡️' : cat === 'salary' ? '👤' : cat === 'repair' ? '🔧' : cat === 'misc' ? '📦' : '💼'}
-            </div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 capitalize" style={{ color: '#334155' }}>{cat}</p>
-            <p className="text-sm font-bold" style={{ color: CAT_COLORS[cat] }}>${byCategory[cat].toFixed(0)}</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', marginBottom: '20px' }}>
+        {CATEGORIES.map((cat, i) => (
+          <div key={cat} className={`card animate-slide-up delay-${i+1}`} style={{ padding: '12px', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.65rem', fontWeight: '500', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{cat}</p>
+            <p style={{ fontSize: '0.9375rem', fontWeight: '600', color: CAT_COLOR[cat], letterSpacing: '-0.02em' }}>${byCategory[cat].toFixed(0)}</p>
           </div>
         ))}
       </div>
 
-      {/* Per-vehicle operational cost */}
+      {/* Per-vehicle cost */}
       {vehicleCosts.length > 0 && (
-        <div className="card p-5 mb-6 animate-fade-in-up">
-          <h3 className="text-sm font-bold text-white mb-4">Operational Cost per Vehicle</h3>
-          <div className="space-y-3">
+        <div className="card animate-slide-up" style={{ padding: '16px 18px', marginBottom: '20px' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '14px' }}>Cost per Vehicle</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {vehicleCosts.map(c => {
               const maxTotal = vehicleCosts[0].total
               return (
                 <div key={c.id}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-white">{c.plate}</span>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: '#64748b' }}>
-                      <span style={{ color: '#60a5fa' }}>F: ${c.fuel.toFixed(0)}</span>
-                      <span style={{ color: '#fbbf24' }}>M: ${c.maintenance.toFixed(0)}</span>
-                      <span style={{ color: '#94a3b8' }}>E: ${c.expenses.toFixed(0)}</span>
-                      <span className="font-bold text-white">= ${c.total.toFixed(0)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.8125rem', fontWeight: '500', color: 'var(--text-primary)' }}>{c.plate}</span>
+                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.75rem' }}>
+                      <span style={{ color: 'var(--blue)' }}>F ${c.fuel.toFixed(0)}</span>
+                      <span style={{ color: 'var(--amber)' }}>M ${c.maintenance.toFixed(0)}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>E ${c.expenses.toFixed(0)}</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>${c.total.toFixed(0)}</span>
                     </div>
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <div className="h-full flex">
-                      <div style={{ width: `${(c.fuel / maxTotal) * 100}%`, background: '#3b82f6' }} />
-                      <div style={{ width: `${(c.maintenance / maxTotal) * 100}%`, background: '#f59e0b' }} />
-                      <div style={{ width: `${(c.expenses / maxTotal) * 100}%`, background: '#94a3b8' }} />
-                    </div>
+                  <div style={{ height: '3px', background: 'var(--surface-4)', borderRadius: '2px', overflow: 'hidden', display: 'flex' }}>
+                    <div style={{ width: `${(c.fuel / maxTotal) * 100}%`, background: 'var(--blue)' }} />
+                    <div style={{ width: `${(c.maintenance / maxTotal) * 100}%`, background: 'var(--amber)' }} />
+                    <div style={{ width: `${(c.expenses / maxTotal) * 100}%`, background: 'var(--text-tertiary)' }} />
                   </div>
                 </div>
               )
@@ -139,81 +120,48 @@ export default function Expenses() {
       )}
 
       {loading ? <Skeleton rows={6} /> : expenses.length === 0 ? (
-        <EmptyState icon="💰" title="No expenses recorded" description="Start tracking operational expenses." action={<button onClick={() => { setForm(empty); setEditing(null); setModal(true) }} className="btn-primary">+ Add Expense</button>} />
+        <EmptyState icon="💰" title="No expenses" description="Start tracking operational expenses." action={<button onClick={() => { setForm(EMPTY); setEditing(null); setModal(true) }} className="btn-primary">Add Expense</button>} />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {['Type','Description','Vehicle','Trip','Amount','Date','Actions'].map(h => <th key={h}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map(exp => (
-                <tr key={exp.id}>
-                  <td>
-                    <span className="px-2 py-0.5 rounded-full text-[0.65rem] font-bold capitalize" style={{ background: `${CAT_COLORS[exp.category] ?? '#94a3b8'}18`, color: CAT_COLORS[exp.category] ?? '#94a3b8', border: `1px solid ${CAT_COLORS[exp.category] ?? '#94a3b8'}30` }}>
-                      {exp.category}
-                    </span>
-                  </td>
-                  <td>{exp.description || '—'}</td>
-                  <td>{getVehicleName(exp)}</td>
-                  <td style={{ maxWidth: '140px' }}><span className="truncate block">{getTripLabel(exp)}</span></td>
-                  <td><span className="font-semibold" style={{ color: '#fbbf24' }}>${Number(exp.amount).toFixed(2)}</span></td>
-                  <td>{exp.expense_date || '—'}</td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button onClick={() => openEdit(exp)} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>Edit</button>
-                      <button onClick={() => handleDelete(exp.id)} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(244,63,94,0.08)', color: '#fb7185', border: '1px solid rgba(244,63,94,0.15)' }}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-2.5 text-xs" style={{ color: '#334155', borderTop: '1px solid rgba(255,255,255,0.04)' }}>{expenses.length} record{expenses.length !== 1 ? 's' : ''} · Total: <span style={{ color: '#fbbf24' }}>${total.toFixed(2)}</span></div>
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead><tr>{['Category','Description','Vehicle','Trip','Amount','Date',''].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {expenses.map(exp => (
+                  <tr key={exp.id}>
+                    <td><span style={{ fontSize: '0.7rem', fontWeight: '600', color: CAT_COLOR[exp.category] ?? 'var(--text-secondary)', textTransform: 'capitalize' }}>{exp.category}</span></td>
+                    <td>{exp.description || '—'}</td>
+                    <td>{getVehicleName(exp)}</td>
+                    <td style={{ maxWidth: '140px' }}><span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getTripLabel(exp)}</span></td>
+                    <td style={{ fontWeight: 500, color: 'var(--amber)' }}>${Number(exp.amount).toFixed(2)}</td>
+                    <td>{exp.expense_date || '—'}</td>
+                    <td><div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => openEdit(exp)} className="btn-ghost" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>Edit</button>
+                      <button onClick={() => handleDelete(exp.id)} className="btn-danger" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>Delete</button>
+                    </div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: '8px 16px', fontSize: '0.75rem', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-subtle)' }}>
+            {expenses.length} records · Total: <span style={{ color: 'var(--amber)', fontWeight: 500 }}>${total.toFixed(2)}</span>
+          </div>
         </div>
       )}
 
       {modal && (
-        <Modal title={editing ? 'Edit Expense' : 'Add Expense'} onClose={() => { setModal(false); setForm(empty); setEditing(null) }}>
-          <form onSubmit={handleSave} className="space-y-3">
-            <div>
-              <label className="label-small">Category *</label>
-              <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-base" required>
-                <option value="">Select category...</option>
-                {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c}</option>)}
-              </select>
+        <Modal title={editing ? 'Edit Expense' : 'Add Expense'} onClose={() => { setModal(false); setForm(EMPTY); setEditing(null) }}>
+          <form onSubmit={handleSave} style={{ display: 'contents' }}>
+            <div><label className="label-small">Category *</label><select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-base" required><option value="">Select…</option>{CATEGORIES.map(c => <option key={c} value={c} style={{ textTransform: 'capitalize' }}>{c}</option>)}</select></div>
+            <div><label className="label-small">Description</label><input placeholder="Brief description…" value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="input-base" /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div><label className="label-small">Amount ($) *</label><input type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="input-base" required /></div>
+              <div><label className="label-small">Date *</label><input type="date" value={form.expense_date} onChange={e => setForm({...form, expense_date: e.target.value})} className="input-base" required /></div>
             </div>
-            <div>
-              <label className="label-small">Description</label>
-              <input placeholder="Brief description..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="input-base" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-small">Amount ($) *</label>
-                <input type="number" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="input-base" required />
-              </div>
-              <div>
-                <label className="label-small">Date *</label>
-                <input type="date" value={form.expense_date} onChange={e => setForm({...form, expense_date: e.target.value})} className="input-base" required />
-              </div>
-            </div>
-            <div>
-              <label className="label-small">Link to Vehicle (optional)</label>
-              <select value={form.vehicle_id} onChange={e => setForm({...form, vehicle_id: e.target.value})} className="input-base">
-                <option value="">Select vehicle...</option>
-                {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number ?? v.plate_number}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label-small">Link to Trip (optional)</label>
-              <select value={form.trip_id} onChange={e => setForm({...form, trip_id: e.target.value})} className="input-base">
-                <option value="">Select trip...</option>
-                {trips.map(t => <option key={t.id} value={t.id}>{t.source ?? t.origin} → {t.destination}</option>)}
-              </select>
-            </div>
-            <button type="submit" className="btn-primary w-full">{editing ? 'Update Expense' : 'Add Expense'}</button>
+            <div><label className="label-small">Vehicle</label><select value={form.vehicle_id} onChange={e => setForm({...form, vehicle_id: e.target.value})} className="input-base"><option value="">Select vehicle…</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number ?? v.plate_number}</option>)}</select></div>
+            <div><label className="label-small">Trip</label><select value={form.trip_id} onChange={e => setForm({...form, trip_id: e.target.value})} className="input-base"><option value="">Select trip…</option>{trips.map(t => <option key={t.id} value={t.id}>{t.source ?? t.origin} → {t.destination}</option>)}</select></div>
+            <button type="submit" className="btn-primary" style={{ width: '100%', height: '38px' }}>{editing ? 'Save Changes' : 'Add Expense'}</button>
           </form>
         </Modal>
       )}

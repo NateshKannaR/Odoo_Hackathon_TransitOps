@@ -5,33 +5,41 @@ export default function AppLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--surface-0)' }}>
+      {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/70 z-20 lg:hidden backdrop-blur-sm animate-fade-in" onClick={() => setSidebarOpen(false)} />
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 20, backdropFilter: 'blur(4px)' }}
+          className="lg:hidden animate-fade-in"
+        />
       )}
 
-      <div className={`fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-30 transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <Sidebar onClose={() => setSidebarOpen(false)} />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Mobile topbar */}
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 sticky top-0 z-10" style={{
-          background: 'rgba(6,11,24,0.92)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          backdropFilter: 'blur(24px)',
+        <div className="lg:hidden" style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '10px 16px',
+          background: 'var(--surface-1)',
+          borderBottom: '1px solid var(--border-subtle)',
+          position: 'sticky', top: 0, zIndex: 10,
         }}>
-          <button onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-              <path d="M4 6h16M4 12h16M4 18h16"/>
+          <button onClick={() => setSidebarOpen(true)} className="btn-ghost" style={{ padding: '6px' }}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '15px', height: '15px' }}>
+              <path d="M2 4h12M2 8h12M2 12h12"/>
             </svg>
           </button>
-          <span className="font-bold text-base gradient-text">TransitOps</span>
-          <div className="ml-auto w-2 h-2 rounded-full" style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }} />
+          <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)' }}>TransitOps</span>
         </div>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-auto">
-          <div className="mx-auto w-full max-w-[1400px]">
+        <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
+          <div style={{ maxWidth: '1320px', margin: '0 auto' }}>
             {children}
           </div>
         </main>

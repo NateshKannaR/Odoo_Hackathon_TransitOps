@@ -1,84 +1,47 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import AppLayout from '../../components/layout/AppLayout'
+import { PageSpinner } from '../../components/ui/Skeleton'
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, PieChart, Pie, Cell
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell
 } from 'recharts'
 
-const KPI_CONFIG = [
-  { key: 'activeVehicles',   label: 'Available Vehicles', icon: '🚗', color: '#10b981', glow: 'rgba(16,185,129,0.2)',  sub: 'Ready to dispatch' },
-  { key: 'onTripVehicles',   label: 'On Trip',            icon: '🛣️', color: '#3b82f6', glow: 'rgba(59,130,246,0.2)',  sub: 'Currently active' },
-  { key: 'inShopVehicles',   label: 'In Maintenance',     icon: '🔧', color: '#f59e0b', glow: 'rgba(245,158,11,0.2)',  sub: 'Under service' },
-  { key: 'utilization',      label: 'Fleet Utilization',  icon: '📊', color: '#8b5cf6', glow: 'rgba(139,92,246,0.2)',  sub: 'On Trip / Non-Retired', suffix: '%' },
-  { key: 'activeTrips',      label: 'Active Trips',       icon: '🗺️', color: '#06b6d4', glow: 'rgba(6,182,212,0.2)',   sub: 'Dispatched' },
-  { key: 'pendingTrips',     label: 'Pending Trips',      icon: '⏳', color: '#64748b', glow: 'rgba(100,116,139,0.2)', sub: 'Draft status' },
-  { key: 'driversOnDuty',    label: 'Drivers On Duty',    icon: '👤', color: '#6366f1', glow: 'rgba(99,102,241,0.2)',  sub: 'Currently on trip' },
-  { key: 'availableDrivers', label: 'Available Drivers',  icon: '✅', color: '#ec4899', glow: 'rgba(236,72,153,0.2)',  sub: 'Ready to assign' },
+const KPI = [
+  { key: 'activeVehicles',   label: 'Available',       sub: 'Vehicles',  color: 'var(--green)',  icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><path d="M1 11h1m12 0h1M2 11V7l2-4h8l2 4v4M5 11a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zm3 0a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zM2 7h12"/></svg> },
+  { key: 'onTripVehicles',   label: 'On Trip',         sub: 'Vehicles',  color: 'var(--blue)',   icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/></svg> },
+  { key: 'inShopVehicles',   label: 'In Maintenance',  sub: 'Vehicles',  color: 'var(--amber)',  icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><path d="M9.5 4.5a1 1 0 0 0 0 1l1 1a1 1 0 0 0 1 0l2.5-2.5a4 4 0 0 1-5.3 5.3L4.2 13.8a1.4 1.4 0 0 1-2-2L6.7 7.3A4 4 0 0 1 12 2L9.5 4.5z"/></svg> },
+  { key: 'utilization',      label: 'Utilization',     sub: 'Fleet',     color: 'var(--brand)',  suffix: '%', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><path d="M12 14V7M8 14V2M4 14v-4"/></svg> },
+  { key: 'activeTrips',      label: 'Active',          sub: 'Trips',     color: 'var(--cyan)',   icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg> },
+  { key: 'pendingTrips',     label: 'Pending',         sub: 'Trips',     color: 'var(--text-secondary)', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg> },
+  { key: 'driversOnDuty',    label: 'On Duty',         sub: 'Drivers',   color: 'var(--violet)', icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg> },
+  { key: 'availableDrivers', label: 'Available',       sub: 'Drivers',   color: 'var(--pink)',   icon: <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" style={{width:14,height:14}}><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/></svg> },
 ]
 
-const CustomTooltip = ({ active, payload, label }) => {
+const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(6,11,24,0.97)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-      <p className="font-semibold text-white mb-1">{label}</p>
+    <div style={{ background: 'var(--surface-4)', border: '1px solid var(--border-default)', borderRadius: '7px', padding: '8px 12px', fontSize: '0.75rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>{label}</p>
       {payload.map(p => (
-        <p key={p.name} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' && p.name !== 'count' ? `$${p.value.toFixed(0)}` : p.value}</p>
+        <p key={p.name} style={{ color: p.color, fontWeight: 500 }}>{p.name}: {typeof p.value === 'number' && p.name !== 'count' ? `$${p.value.toFixed(0)}` : p.value}</p>
       ))}
     </div>
   )
 }
 
-function useCountUp(target, duration = 800) {
-  const [count, setCount] = useState(0)
-  const ref = useRef(null)
-  useEffect(() => {
-    if (target === null || target === undefined) return
-    const num = parseFloat(target)
-    if (isNaN(num)) { setCount(target); return }
-    const start = Date.now()
-    const tick = () => {
-      const elapsed = Date.now() - start
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Number.isInteger(num) ? Math.round(eased * num) : (eased * num).toFixed(1))
-      if (progress < 1) ref.current = requestAnimationFrame(tick)
-    }
-    ref.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(ref.current)
-  }, [target, duration])
-  return count
-}
-
-function KPICard({ config, value, index }) {
-  const animated = useCountUp(value, 900 + index * 80)
+function KPICard({ cfg, value, delay }) {
   return (
-    <div
-      className="card card-hover p-5 animate-fade-in-up relative overflow-hidden"
-      style={{ animationDelay: `${index * 0.06}s` }}
-    >
-      {/* Background glow */}
-      <div className="absolute top-0 right-0 w-28 h-28 rounded-full opacity-15 -translate-y-10 translate-x-10" style={{ background: config.color, filter: 'blur(24px)' }} />
-      {/* Top shimmer */}
-      <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${config.color}60, transparent)` }} />
-
-      <div className="flex items-start justify-between mb-4 relative z-10">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{
-          background: config.glow,
-          border: `1px solid ${config.color}30`,
-          boxShadow: `0 4px 12px ${config.glow}`,
-        }}>
-          {config.icon}
-        </div>
-        <div className="w-2 h-2 rounded-full" style={{ background: config.color, boxShadow: `0 0 10px ${config.color}` }} />
+    <div className="card animate-slide-up" style={{ padding: '16px 18px', animationDelay: delay }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{cfg.sub}</span>
+        <span style={{ color: cfg.color, opacity: 0.7 }}>{cfg.icon}</span>
       </div>
-
-      <p className="text-3xl font-bold text-white mb-1 relative z-10 animate-count-up" style={{ animationDelay: `${index * 0.06 + 0.1}s` }}>
-        {animated}{config.suffix ?? ''}
-      </p>
-      <p className="text-xs font-semibold relative z-10" style={{ color: config.color }}>{config.label}</p>
-      <p className="text-xs mt-0.5 relative z-10" style={{ color: '#1e293b' }}>{config.sub}</p>
+      <div style={{ fontSize: '1.625rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: '4px' }}>
+        {value ?? '—'}{cfg.suffix ?? ''}
+      </div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{cfg.label}</div>
     </div>
   )
 }
@@ -94,20 +57,15 @@ export default function Dashboard() {
 
   async function fetchDashboard() {
     const [vehicles, trips, drivers, fuelLogs, maintenanceLogs, expenses] = await Promise.all([
-      supabase.from('vehicles').select('id,status,created_at'),
-      supabase.from('trips').select('id,status,vehicle_id,scheduled_at'),
+      supabase.from('vehicles').select('id,status'),
+      supabase.from('trips').select('id,status'),
       supabase.from('drivers').select('id,status'),
-      supabase.from('fuel_logs').select('total_cost,fueled_at,vehicle_id'),
-      supabase.from('maintenance_logs').select('cost,service_date,vehicle_id'),
+      supabase.from('fuel_logs').select('total_cost,fueled_at'),
+      supabase.from('maintenance_logs').select('cost,service_date'),
       supabase.from('expenses').select('amount,expense_date'),
     ])
-
-    const v = vehicles.data ?? []
-    const t = trips.data ?? []
-    const d = drivers.data ?? []
-    const fl = fuelLogs.data ?? []
-    const ml = maintenanceLogs.data ?? []
-    const ex = expenses.data ?? []
+    const v = vehicles.data ?? [], t = trips.data ?? [], d = drivers.data ?? []
+    const fl = fuelLogs.data ?? [], ml = maintenanceLogs.data ?? [], ex = expenses.data ?? []
 
     const nonRetired = v.filter(x => x.status !== 'retired')
     const onTrip = v.filter(x => x.status === 'on_trip')
@@ -128,187 +86,178 @@ export default function Dashboard() {
     })
 
     setUtilizationData([
-      { name: 'Available', count: v.filter(x => x.status === 'available').length, fill: '#10b981' },
+      { name: 'Available', count: v.filter(x => x.status === 'available').length, fill: '#22c55e' },
       { name: 'On Trip',   count: onTrip.length, fill: '#3b82f6' },
       { name: 'In Shop',   count: v.filter(x => x.status === 'in_shop').length, fill: '#f59e0b' },
-      { name: 'Retired',   count: v.filter(x => x.status === 'retired').length, fill: '#f43f5e' },
+      { name: 'Retired',   count: v.filter(x => x.status === 'retired').length, fill: '#ef4444' },
     ])
 
     setTripStatusData([
-      { name: 'Draft',      value: t.filter(x => x.status === 'draft').length,      fill: '#64748b' },
+      { name: 'Draft',      value: t.filter(x => x.status === 'draft').length,      fill: '#4a4a5e' },
       { name: 'Dispatched', value: t.filter(x => x.status === 'dispatched').length,  fill: '#3b82f6' },
-      { name: 'Completed',  value: t.filter(x => x.status === 'completed').length,   fill: '#10b981' },
-      { name: 'Cancelled',  value: t.filter(x => x.status === 'cancelled').length,   fill: '#f43f5e' },
+      { name: 'Completed',  value: t.filter(x => x.status === 'completed').length,   fill: '#22c55e' },
+      { name: 'Cancelled',  value: t.filter(x => x.status === 'cancelled').length,   fill: '#ef4444' },
     ].filter(x => x.value > 0))
 
     const months = []
     for (let i = 5; i >= 0; i--) {
-      const date = new Date()
-      date.setMonth(date.getMonth() - i)
+      const date = new Date(); date.setMonth(date.getMonth() - i)
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       const label = date.toLocaleString('default', { month: 'short' })
-      const fuel = fl.filter(r => r.fueled_at?.startsWith(key)).reduce((s, r) => s + Number(r.total_cost ?? 0), 0)
-      const maint = ml.filter(r => r.service_date?.startsWith(key)).reduce((s, r) => s + Number(r.cost ?? 0), 0)
-      const exp = ex.filter(r => r.expense_date?.startsWith(key)).reduce((s, r) => s + Number(r.amount ?? 0), 0)
-      months.push({ month: label, Fuel: fuel, Maintenance: maint, Expenses: exp })
+      months.push({
+        month: label,
+        Fuel: fl.filter(r => r.fueled_at?.startsWith(key)).reduce((s, r) => s + Number(r.total_cost ?? 0), 0),
+        Maintenance: ml.filter(r => r.service_date?.startsWith(key)).reduce((s, r) => s + Number(r.cost ?? 0), 0),
+        Expenses: ex.filter(r => r.expense_date?.startsWith(key)).reduce((s, r) => s + Number(r.amount ?? 0), 0),
+      })
     }
     setCostTrendData(months)
   }
 
-  if (!stats) return (
-    <AppLayout>
-      <div className="flex items-center justify-center py-32">
-        <div className="relative">
-          <div className="w-12 h-12 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: '#3b82f6', borderRightColor: 'rgba(59,130,246,0.3)' }} />
-          <div className="absolute inset-1 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: '#8b5cf6', borderRightColor: 'rgba(139,92,246,0.3)', animationDirection: 'reverse', animationDuration: '0.8s' }} />
-        </div>
-      </div>
-    </AppLayout>
-  )
+  if (!stats) return <AppLayout><PageSpinner /></AppLayout>
 
   const totalOpCost = stats.totalFuelCost + stats.totalMaintCost + stats.totalExpenses
 
   return (
     <AppLayout>
       {/* Header */}
-      <div className="mb-8 animate-fade-in-up">
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1.5" style={{ background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.8)' }} />
-            Live
-          </span>
-        </div>
-        <div className="page-header-line w-20 mb-1" />
-        <p className="text-sm" style={{ color: '#475569' }}>
-          Welcome back, <span style={{ color: '#94a3b8' }}>{profile?.full_name}</span> · <span className="capitalize">{profile?.role?.replace(/_/g, ' ')}</span>
+      <div className="animate-slide-up" style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '1.125rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Overview</h1>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+          {profile?.full_name} · {profile?.role?.replace(/_/g, ' ')}
         </p>
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {KPI_CONFIG.map((cfg, i) => (
-          <KPICard key={cfg.key} config={cfg} value={stats[cfg.key]} index={i} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }} className="kpi-grid">
+        {KPI.map((cfg, i) => (
+          <KPICard key={cfg.key} cfg={cfg} value={stats[cfg.key]} delay={`${i * 0.04}s`} />
         ))}
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Cost Trend */}
-        <div className="card p-5 lg:col-span-2 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <div className="flex items-center justify-between mb-5">
+      {/* Charts row 1 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '12px', marginBottom: '12px' }}>
+        {/* Cost trend */}
+        <div className="card animate-slide-up delay-3" style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div>
-              <h3 className="text-sm font-bold text-white">Monthly Cost Trend</h3>
-              <p className="text-xs mt-0.5" style={{ color: '#334155' }}>Last 6 months</p>
+              <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)' }}>Cost Trend</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '1px' }}>Last 6 months</p>
             </div>
-            <div className="flex items-center gap-3 text-xs" style={{ color: '#475569' }}>
-              {[['Fuel','#3b82f6'],['Maintenance','#f59e0b'],['Expenses','#f43f5e']].map(([l,c]) => (
-                <span key={l} className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ background: c, boxShadow: `0 0 4px ${c}` }} />{l}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {[['Fuel','#3b82f6'],['Maint.','#f59e0b'],['Expenses','#ef4444']].map(([l,c]) => (
+                <span key={l} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                  <span style={{ width: '8px', height: '2px', background: c, borderRadius: '1px', display: 'inline-block' }} />{l}
                 </span>
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={costTrendData}>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={costTrendData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
               <defs>
-                {[['fuel','#3b82f6'],['maint','#f59e0b'],['exp','#f43f5e']].map(([id,c]) => (
-                  <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={c} stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor={c} stopOpacity={0}/>
+                {[['f','#3b82f6'],['m','#f59e0b'],['e','#ef4444']].map(([id,c]) => (
+                  <linearGradient key={id} id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={c} stopOpacity={0.2}/>
+                    <stop offset="100%" stopColor={c} stopOpacity={0}/>
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="Fuel" stroke="#3b82f6" fill="url(#fuel)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="Maintenance" stroke="#f59e0b" fill="url(#maint)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="Expenses" stroke="#f43f5e" fill="url(#exp)" strokeWidth={2} dot={false} />
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Area type="monotone" dataKey="Fuel" stroke="#3b82f6" fill="url(#gf)" strokeWidth={1.5} dot={false} />
+              <Area type="monotone" dataKey="Maintenance" stroke="#f59e0b" fill="url(#gm)" strokeWidth={1.5} dot={false} />
+              <Area type="monotone" dataKey="Expenses" stroke="#ef4444" fill="url(#ge)" strokeWidth={1.5} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Trip Status Pie */}
-        <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
-          <h3 className="text-sm font-bold text-white mb-1">Trip Status</h3>
-          <p className="text-xs mb-4" style={{ color: '#334155' }}>Distribution</p>
+        {/* Trip status */}
+        <div className="card animate-slide-up delay-4" style={{ padding: '18px 20px' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px' }}>Trip Status</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '16px' }}>Distribution</p>
           {tripStatusData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={140}>
                 <PieChart>
-                  <Pie data={tripStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
+                  <Pie data={tripStatusData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value" strokeWidth={0}>
                     {tripStatusData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<ChartTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-2 mt-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
                 {tripStatusData.map(d => (
-                  <div key={d.name} className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: d.fill, boxShadow: `0 0 4px ${d.fill}` }} />{d.name}
+                  <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: d.fill, flexShrink: 0 }} />{d.name}
                     </span>
-                    <span className="font-semibold text-white">{d.value}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '500', color: 'var(--text-primary)' }}>{d.value}</span>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-40 text-xs" style={{ color: '#1e293b' }}>No trip data yet</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '160px', fontSize: '0.8125rem', color: 'var(--text-tertiary)' }}>No data</div>
           )}
         </div>
       </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Fleet Status Bar */}
-        <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-          <h3 className="text-sm font-bold text-white mb-1">Fleet Status Breakdown</h3>
-          <p className="text-xs mb-4" style={{ color: '#334155' }}>Vehicle count by status</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={utilizationData} barSize={36}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" radius={[8,8,0,0]}>
+      {/* Charts row 2 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {/* Fleet status bar */}
+        <div className="card animate-slide-up delay-5" style={{ padding: '18px 20px' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px' }}>Fleet Status</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '16px' }}>Vehicles by status</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={utilizationData} barSize={28} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar dataKey="count" radius={[4,4,0,0]}>
                 {utilizationData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Cost Summary */}
-        <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
-          <h3 className="text-sm font-bold text-white mb-1">Cost Summary</h3>
-          <p className="text-xs mb-5" style={{ color: '#334155' }}>Total operational expenditure</p>
-          <div className="space-y-4">
+        {/* Cost breakdown */}
+        <div className="card animate-slide-up delay-6" style={{ padding: '18px 20px' }}>
+          <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '4px' }}>Cost Breakdown</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '20px' }}>Operational expenditure</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { label: 'Fuel Costs',        value: stats.totalFuelCost,  color: '#3b82f6', pct: totalOpCost > 0 ? (stats.totalFuelCost / totalOpCost * 100) : 0 },
-              { label: 'Maintenance Costs', value: stats.totalMaintCost, color: '#f59e0b', pct: totalOpCost > 0 ? (stats.totalMaintCost / totalOpCost * 100) : 0 },
-              { label: 'Other Expenses',    value: stats.totalExpenses,  color: '#f43f5e', pct: totalOpCost > 0 ? (stats.totalExpenses / totalOpCost * 100) : 0 },
-            ].map(item => (
-              <div key={item.label}>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span style={{ color: '#94a3b8' }}>{item.label}</span>
-                  <span className="font-semibold text-white">${item.value.toFixed(2)}</span>
+              { label: 'Fuel',        value: stats.totalFuelCost,  color: '#3b82f6' },
+              { label: 'Maintenance', value: stats.totalMaintCost, color: '#f59e0b' },
+              { label: 'Expenses',    value: stats.totalExpenses,  color: '#ef4444' },
+            ].map(item => {
+              const pct = totalOpCost > 0 ? (item.value / totalOpCost * 100) : 0
+              return (
+                <div key={item.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{item.label}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '500', color: 'var(--text-primary)' }}>${item.value.toFixed(2)}</span>
+                  </div>
+                  <div style={{ height: '3px', background: 'var(--surface-4)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: '2px', transition: 'width 0.8s ease' }} />
+                  </div>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${item.pct}%`, background: `linear-gradient(90deg, ${item.color}, ${item.color}aa)`, boxShadow: `0 0 8px ${item.color}60` }} />
-                </div>
-              </div>
-            ))}
-            <div className="pt-3 mt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-semibold" style={{ color: '#94a3b8' }}>Total Op. Cost</span>
-                <span className="text-xl font-bold gradient-text">${totalOpCost.toFixed(2)}</span>
-              </div>
+              )
+            })}
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total</span>
+              <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>${totalOpCost.toFixed(2)}</span>
             </div>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 640px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+      `}</style>
     </AppLayout>
   )
 }
