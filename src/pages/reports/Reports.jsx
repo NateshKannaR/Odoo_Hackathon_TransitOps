@@ -5,6 +5,83 @@ import PageHeader from '../../components/ui/PageHeader'
 import Badge from '../../components/ui/Badge'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+function exportPDF(data, summary) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  // Header
+  doc.setFillColor(11, 11, 23)
+  doc.rect(0, 0, 297, 20, 'F')
+  doc.setTextColor(244, 244, 246)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text('TransitOps — Fleet Performance Report', 14, 13)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(139, 139, 158)
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 230, 13)
+
+  // Summary KPIs
+  doc.setTextColor(30, 30, 50)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  const kpis = [
+    ['Total Revenue', `$${summary.revenue.toFixed(2)}`],
+    ['Total Op. Cost', `$${summary.cost.toFixed(2)}`],
+    ['Net Profit', `$${(summary.revenue - summary.cost).toFixed(2)}`],
+    ['Avg Fuel Efficiency', summary.avgEff !== '—' ? `${summary.avgEff} km/L` : '—'],
+  ]
+  kpis.forEach(([label, val], i) => {
+    const x = 14 + i * 68
+    doc.setFillColor(245, 245, 250)
+    doc.roundedRect(x, 24, 64, 14, 2, 2, 'F')
+    doc.setTextColor(100, 100, 120)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text(label, x + 4, 30)
+    doc.setTextColor(20, 20, 40)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(val, x + 4, 36)
+  })
+
+  // Table
+  autoTable(doc, {
+    startY: 44,
+    head: [['Vehicle', 'Status', 'Fuel ($)', 'Maintenance ($)', 'Expenses ($)', 'Total Cost ($)', 'Distance (km)', 'Fuel (L)', 'Efficiency (km/L)', 'Revenue ($)', 'ROI (%)']],
+    body: data.map(r => [
+      r.plate_number,
+      r.status,
+      r.fuelCost.toFixed(2),
+      r.maintCost.toFixed(2),
+      r.expCost.toFixed(2),
+      r.totalCost.toFixed(2),
+      r.totalDistance.toFixed(1),
+      r.totalFuelConsumed.toFixed(1),
+      r.fuelEfficiency,
+      r.revenue.toFixed(2),
+      r.roi,
+    ]),
+    styles: { fontSize: 7.5, cellPadding: 3, textColor: [30, 30, 50] },
+    headStyles: { fillColor: [91, 106, 240], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+    alternateRowStyles: { fillColor: [248, 248, 252] },
+    columnStyles: { 0: { fontStyle: 'bold' } },
+    margin: { left: 14, right: 14 },
+  })
+
+  // Footer
+  const pageCount = doc.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(7)
+    doc.setTextColor(180, 180, 200)
+    doc.text(`TransitOps Fleet Report · Page ${i} of ${pageCount}`, 14, doc.internal.pageSize.height - 6)
+  }
+
+  doc.save(`transitops_report_${new Date().toISOString().slice(0, 10)}.pdf`)
+}
 
 function exportCSV(data) {
   const headers = ['Vehicle','Status','Acquisition Cost','Fuel Cost','Maintenance Cost','Other Expenses','Total Op. Cost','Total Distance (km)','Total Fuel (L)','Fuel Efficiency (km/L)','Revenue','ROI (%)']
@@ -84,7 +161,15 @@ export default function Reports() {
             </select>
             <button onClick={() => exportCSV(filtered)} className="btn-secondary" style={{ height: '34px' }}>
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '12px', height: '12px' }}><path d="M7 9V1M4 6l3 3 3-3M1 11v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1"/></svg>
-              Export CSV
+              CSV
+            </button>
+            <button
+              onClick={() => exportPDF(filtered, { revenue: totalRevenue, cost: totalCost, avgEff: avgEfficiency })}
+              className="btn-secondary"
+              style={{ height: '34px', color: 'var(--red)', borderColor: 'var(--red-border)', background: 'var(--red-muted)' }}
+            >
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '12px', height: '12px' }}><path d="M8 1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6L8 1z"/><path d="M8 1v5h5"/></svg>
+              PDF
             </button>
           </div>
         }
