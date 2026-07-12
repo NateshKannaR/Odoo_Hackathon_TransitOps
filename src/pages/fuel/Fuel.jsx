@@ -25,10 +25,10 @@ export default function Fuel() {
   async function fetchAll() {
     setLoading(true)
     const [l, v, d, t] = await Promise.all([
-      supabase.from('fuel_logs').select('*, vehicles(registration_number,plate_number), drivers(full_name), trips(source,origin,destination)').order('fueled_at', { ascending: false }),
+      supabase.from('fuel_logs').select('*, vehicles(registration_number,plate_number), drivers(full_name), trips(origin,destination)').order('fueled_at', { ascending: false }),
       supabase.from('vehicles').select('id,registration_number,plate_number'),
       supabase.from('drivers').select('id,full_name'),
-      supabase.from('trips').select('id,source,origin,destination').in('status', ['dispatched','completed']).order('created_at', { ascending: false }),
+      supabase.from('trips').select('id,origin,destination').in('status', ['dispatched','completed']).order('created_at', { ascending: false }),
     ])
     setLogs(l.data ?? []); setVehicles(v.data ?? []); setDrivers(d.data ?? []); setTrips(t.data ?? [])
     setLoading(false)
@@ -68,7 +68,7 @@ export default function Fuel() {
   const avgCpl = logs.length > 0 ? logs.reduce((s, r) => s + Number(r.cost_per_liter ?? 0), 0) / logs.length : 0
 
   const getVehicleName = log => log.vehicles?.registration_number ?? log.vehicles?.plate_number ?? '—'
-  const getTripLabel = log => log.trips ? `${log.trips.source ?? log.trips.origin ?? ''} → ${log.trips.destination ?? ''}` : '—'
+  const getTripLabel = log => log.trips ? `${log.trips.origin ?? ''} → ${log.trips.destination ?? ''}` : '—'
 
   return (
     <AppLayout>

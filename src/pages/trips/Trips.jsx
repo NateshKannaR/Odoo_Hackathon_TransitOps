@@ -8,7 +8,7 @@ import EmptyState from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { useToast } from '../../context/ToastContext'
 
-const EMPTY_FORM = { vehicle_id: '', driver_id: '', source: '', destination: '', cargo_weight: '', planned_distance: '', scheduled_at: '' }
+const EMPTY_FORM = { vehicle_id: '', driver_id: '', origin: '', destination: '', cargo_weight: '', planned_distance: '', scheduled_at: '' }
 const EMPTY_COMPLETE = { actual_distance: '', fuel_consumed: '', revenue: '' }
 const STATUS_ORDER = ['draft','dispatched','completed','cancelled']
 const STATUS_COLOR = { draft: 'var(--text-tertiary)', dispatched: 'var(--blue)', completed: 'var(--green)', cancelled: 'var(--red)' }
@@ -25,7 +25,7 @@ function TripCard({ trip, onDispatch, onComplete, onCancel }) {
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trip.drivers?.full_name ?? '—'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{trip.source}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{trip.origin}</span>
             <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '10px', height: '10px', flexShrink: 0, color: 'var(--text-tertiary)' }}><path d="M2 6h8M7 3l3 3-3 3"/></svg>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{trip.destination}</span>
           </div>
@@ -113,7 +113,7 @@ export default function Trips() {
     const { data: dCheck } = await supabase.from('drivers').select('status,full_name,license_expiry_date').eq('id', form.driver_id).single()
     if (!dCheck || dCheck.status !== 'available') { toast(`Driver ${dCheck?.full_name} is no longer available.`, 'error'); setSaving(false); fetchAll(); return }
     if (dCheck.license_expiry_date && new Date(dCheck.license_expiry_date) < new Date()) { toast(`Driver ${dCheck.full_name}'s license has expired.`, 'error'); setSaving(false); return }
-    const { error } = await supabase.from('trips').insert({ ...form, cargo_weight: form.cargo_weight || null, planned_distance: form.planned_distance || null, status: 'draft' })
+    const { error } = await supabase.from('trips').insert({ ...form, cargo_weight: form.cargo_weight || null, planned_distance: form.planned_distance || null, status: 'draft', source: form.origin })
     if (error) { toast(error.message, 'error'); setSaving(false); return }
     toast('Trip created.', 'success'); setModal(false); setForm(EMPTY_FORM); setSaving(false); fetchAll()
   }
@@ -218,7 +218,7 @@ export default function Trips() {
               {drivers.length === 0 && <p style={{ fontSize: '0.75rem', color: 'var(--amber)', marginTop: '4px' }}>No available drivers with valid licenses.</p>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div><label className="label-small">Origin *</label><input placeholder="Warehouse A" value={form.source} onChange={e => setForm({...form, source: e.target.value})} className="input-base" required /></div>
+              <div><label className="label-small">Origin *</label><input placeholder="Warehouse A" value={form.origin} onChange={e => setForm({...form, origin: e.target.value})} className="input-base" required /></div>
               <div><label className="label-small">Destination *</label><input placeholder="Port B" value={form.destination} onChange={e => setForm({...form, destination: e.target.value})} className="input-base" required /></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -235,7 +235,7 @@ export default function Trips() {
         <Modal title="Complete Trip" onClose={() => setCompleteModal(null)}>
           <div style={{ padding: '10px 12px', background: 'var(--surface-3)', borderRadius: '7px', border: '1px solid var(--border-subtle)' }}>
             <p style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--text-primary)' }}>{completeModal.vehicles?.registration_number}</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{completeModal.source} → {completeModal.destination}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{completeModal.origin} → {completeModal.destination}</p>
           </div>
           <form onSubmit={handleComplete} style={{ display: 'contents' }}>
             <div><label className="label-small">Actual Distance (km) *</label><input type="number" step="0.01" placeholder="0" value={completeForm.actual_distance} onChange={e => setCompleteForm({...completeForm, actual_distance: e.target.value})} className="input-base" required /></div>
