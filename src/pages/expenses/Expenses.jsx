@@ -27,9 +27,9 @@ export default function Expenses() {
   async function fetchAll() {
     setLoading(true)
     const [e, v, t, fl, ml, ex] = await Promise.all([
-      supabase.from('expenses').select('*, vehicles(registration_number,plate_number), trips(source,origin,destination)').order('expense_date', { ascending: false }),
+      supabase.from('expenses').select('*, vehicles(registration_number,plate_number), trips(origin,destination)').order('expense_date', { ascending: false }),
       supabase.from('vehicles').select('id,registration_number,plate_number'),
-      supabase.from('trips').select('id,source,origin,destination').in('status', ['dispatched','completed']).order('created_at', { ascending: false }),
+      supabase.from('trips').select('id,origin,destination').in('status', ['dispatched','completed']).order('created_at', { ascending: false }),
       supabase.from('fuel_logs').select('vehicle_id,total_cost'),
       supabase.from('maintenance_logs').select('vehicle_id,cost'),
       supabase.from('expenses').select('vehicle_id,amount'),
@@ -69,7 +69,7 @@ export default function Expenses() {
   const total = expenses.reduce((sum, e) => sum + Number(e.amount ?? 0), 0)
   const byCategory = CATEGORIES.reduce((acc, c) => ({ ...acc, [c]: expenses.filter(e => e.category === c).reduce((s, e) => s + Number(e.amount ?? 0), 0) }), {})
   const getVehicleName = exp => exp.vehicles?.registration_number ?? exp.vehicles?.plate_number ?? '—'
-  const getTripLabel = exp => exp.trips ? `${exp.trips.source ?? exp.trips.origin ?? ''} → ${exp.trips.destination ?? ''}` : '—'
+  const getTripLabel = exp => exp.trips ? `${exp.trips.origin ?? ''} → ${exp.trips.destination ?? ''}` : '—'
 
   return (
     <AppLayout>
@@ -160,7 +160,7 @@ export default function Expenses() {
               <div><label className="label-small">Date *</label><input type="date" value={form.expense_date} onChange={e => setForm({...form, expense_date: e.target.value})} className="input-base" required /></div>
             </div>
             <div><label className="label-small">Vehicle</label><select value={form.vehicle_id} onChange={e => setForm({...form, vehicle_id: e.target.value})} className="input-base"><option value="">Select vehicle…</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number ?? v.plate_number}</option>)}</select></div>
-            <div><label className="label-small">Trip</label><select value={form.trip_id} onChange={e => setForm({...form, trip_id: e.target.value})} className="input-base"><option value="">Select trip…</option>{trips.map(t => <option key={t.id} value={t.id}>{t.source ?? t.origin} → {t.destination}</option>)}</select></div>
+            <div><label className="label-small">Trip</label><select value={form.trip_id} onChange={e => setForm({...form, trip_id: e.target.value})} className="input-base"><option value="">Select trip…</option>{trips.map(t => <option key={t.id} value={t.id}>{t.origin} → {t.destination}</option>)}</select></div>
             <button type="submit" className="btn-primary" style={{ width: '100%', height: '38px' }}>{editing ? 'Save Changes' : 'Add Expense'}</button>
           </form>
         </Modal>

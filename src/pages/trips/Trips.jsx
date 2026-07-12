@@ -113,7 +113,7 @@ export default function Trips() {
     const { data: dCheck } = await supabase.from('drivers').select('status,full_name,license_expiry_date').eq('id', form.driver_id).single()
     if (!dCheck || dCheck.status !== 'available') { toast(`Driver ${dCheck?.full_name} is no longer available.`, 'error'); setSaving(false); fetchAll(); return }
     if (dCheck.license_expiry_date && new Date(dCheck.license_expiry_date) < new Date()) { toast(`Driver ${dCheck.full_name}'s license has expired.`, 'error'); setSaving(false); return }
-    const { error } = await supabase.from('trips').insert({ ...form, cargo_weight: form.cargo_weight || null, planned_distance: form.planned_distance || null, status: 'draft', source: form.origin })
+    const { error } = await supabase.from('trips').insert({ ...form, cargo_weight: form.cargo_weight || null, planned_distance: form.planned_distance || null, status: 'draft' })
     if (error) { toast(error.message, 'error'); setSaving(false); return }
     toast('Trip created.', 'success'); setModal(false); setForm(EMPTY_FORM); setSaving(false); fetchAll()
   }
