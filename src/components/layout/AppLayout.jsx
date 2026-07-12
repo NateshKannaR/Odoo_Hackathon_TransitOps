@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
+import ChatBot from '../ui/ChatBot'
 
 export default function AppLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -44,6 +45,7 @@ export default function AppLayout({ children }) {
           </div>
         </main>
       </div>
+      <ChatBot />
     </div>
   )
 }
