@@ -2,7 +2,7 @@
 
 **Smart Transport Operations Platform** — built for the Odoo Hackathon (8 Hours)
 
-🔗 **Live Demo:** [https://odoo-hackathon-transit-ops-nine.vercel.app/dashboard](https://odoo-hackathon-transit-ops-nine.vercel.app)
+🔗 **Live Demo:** [https://odoo-hackathon-transit-ops-nine.vercel.app](https://odoo-hackathon-transit-ops-nine.vercel.app)
 
 ---
 
